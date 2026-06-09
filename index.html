@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Governance KPI Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+    <style>
+        /* ── Base ── */
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #e8f0fe;
+            background-image:
+                radial-gradient(ellipse at 20% 10%, rgba(99,102,241,0.10) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 90%, rgba(16,185,129,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 60% 30%, rgba(59,130,246,0.07) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* ── Remove number input spinners ── */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        /* ── Print ── */
+        @media print {
+            body { background: white; }
+            .no-print { display: none !important; }
+            .print-break-inside-avoid { break-inside: avoid; }
+            .shadow-md { box-shadow: none !important; border: 1px solid #e2e8f0; }
+        }
+
+        /* ── Toast animations ── */
+        @keyframes slideInRight  { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        .toast-enter { animation: slideInRight  0.3s forwards ease-out; }
+        .toast-exit  { animation: slideOutRight 0.3s forwards ease-in;  }
+
+        /* ── KPI Summary Table ── */
+        .kpi-summary-table th {
+            background: linear-gradient(135deg, #1e3a8a, #4f46e5);
+            color: white; font-size: 13px;
+        }
+        .kpi-summary-table tr:nth-child(even) { background-color: #f0f4ff; }
+        .kpi-summary-table tr:hover { background-color: #dbeafe; transition: background 0.15s; }
+
+        /* ── Status badges ── */
+        .status-pass {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46; font-weight: 700; border-radius: 6px; padding: 2px 8px;
+            border: 1px solid #6ee7b7;
+        }
+        .status-fail {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b; font-weight: 700; border-radius: 6px; padding: 2px 8px;
+            border: 1px solid #fca5a5;
+        }
+        .status-nodata {
+            background: #f1f5f9; color: #64748b; font-weight: 600;
+            border-radius: 6px; padding: 2px 8px;
+        }
+
+        /* ── Section header gradients ── */
+        .section-header-blue { background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 60%, #6d28d9 100%); }
+        .section-header-rose { background: linear-gradient(135deg, #9f1239 0%, #e11d48 60%, #f43f5e 100%); }
+
+        /* ── Stat card hover ── */
+        .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+
+        /* ── Collapse icon ── */
+        #overviewCollapseIcon { transition: transform 0.2s ease; }
+
+        /* ── Full-bleed section ── */
+        .full-bleed-section {
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            margin-right: calc(50% - 50vw);
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        @media (min-width: 640px)  { .full-bleed-section { padding-left: 1.5rem; padding-right: 1.5rem; } }
+        @media (min-width: 1024px) { .full-bleed-section { padding-left: 2rem;   padding-right: 2rem;   } }
+
+        /* ── YTD achievement badge ── */
+        .ytd-badge-status { margin-top: 8px; font-size: 13px !important; }
+
+        /* ── Section base shadow ── */
+        section, .bg-white.rounded-xl {
+            box-shadow: 0 2px 12px rgba(30,58,138,0.06), 0 1px 4px rgba(0,0,0,0.04);
+        }
+
+        /* ── Overview donut glow ── */
+        #overviewDonutChart { filter: drop-shadow(0 0 8px rgba(52,211,153,0.25)); }
+
+        /* ── Selected KPI premium visuals ── */
+        .ytd-achievement-card {
+            border: 1px solid rgba(255,255,255,0.10);
+            box-shadow: 0 14px 36px rgba(67,56,202,0.20), inset 0 1px 0 rgba(255,255,255,0.10);
+            transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease;
+        }
+        .ytd-achievement-card:hover {
+            transform: translateY(-1px);
+        }
+        .pct-summary-card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(148,163,184,0.20);
+            box-shadow: 0 18px 36px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.07);
+            transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+        }
+        .pct-summary-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 36%),
+                radial-gradient(circle at bottom left, rgba(99,102,241,0.20), transparent 40%);
+            pointer-events: none;
+        }
+        #pctDonutChart {
+            filter: drop-shadow(0 10px 18px rgba(15,23,42,0.28));
+        }
+    </style>
+</head>
+<body class="text-slate-800 pb-2">
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!--  Toast container                               -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 no-print"></div>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!--  Header                                        -->
+    <!-- ══════════════════════════════════════════════ -->
+    <header style="background: linear-gradient(135deg, #0a0f2e 0%, #1e3a8a 40%, #4338ca 75%, #7c3aed 100%);
+                   border-bottom: 2px solid rgba(139,92,246,0.35);"
+            class="text-white shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
+
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded bg-white/10 backdrop-blur flex items-center justify-center border border-white/20">
+                    <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold tracking-tight md:text-base">Clinical Governance KPI Dashboard</h1>
+                    <p class="text-blue-300 text-xs">
+                        ระบบติดตามตัวชี้วัดคุณภาพทางคลินิก | ปีงบประมาณ
+                        <span id="headerYear">2569</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Toolbar buttons -->
+            <div class="no-print flex gap-1.5 items-center flex-wrap">
+
+                <!-- API status badge -->
+                <div id="apiStatusBadge"
+                     class="flex items-center gap-1 bg-white/10 border border-white/20 text-white text-[10px] font-semibold px-2 py-1 rounded backdrop-blur">
+                    <span id="apiStatusDot"  class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
+                    <span id="apiStatusText">ยังไม่ได้เชื่อมต่อ</span>
+                </div>
+
+                <!-- Load from Sheet -->
+                <button onclick="loadFromSheet()" id="btnLoad"
+                        class="bg-emerald-600 hover:bg-emerald-700 text-xs transition px-3 py-1.5 rounded flex items-center gap-1 text-white font-semibold">
+                    <svg id="loadIcon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    <span id="loadText">โหลดจาก Sheet</span>
+                </button>
+
+                <!-- Toggle details -->
+                <button onclick="toggleDetailsSection()" id="btnToggleDetails"
+                        class="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded transition flex items-center gap-1 backdrop-blur">
+                    <svg id="toggleIcon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                    </svg>
+                    <span id="toggleText">ปิดการแสดงรายละเอียดตัวชี้วัด</span>
+                </button>
+
+                <!-- Print PDF -->
+                <button onclick="window.print()"
+                        class="bg-blue-600 hover:bg-blue-700 text-xs transition px-3 py-1.5 rounded flex items-center gap-1 text-white font-semibold">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    พิมพ์ PDF
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!--  Main content                                  -->
+    <!-- ══════════════════════════════════════════════ -->
+    <main class="max-w-7xl mx-auto px-2 mt-1 space-y-1">
+
+        <!-- ── Overview section ── -->
+        <section id="overviewDashboard" class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+
+            <!-- Section header (collapsible) -->
+            <div class="section-header-blue px-3 py-1.5 flex flex-col sm:flex-row justify-between items-start sm:items-center cursor-pointer select-none"
+                 onclick="toggleOverviewSection()" title="คลิกเพื่อย่อ/ขยาย">
+                <div class="flex items-center gap-2">
+                    <div class="w-5 h-5 rounded bg-white/15 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-xs font-bold text-white md:text-sm">
+                        สถานะภาพรวมตัวชี้วัดทั้งหมดที่คณะกรรมกำกับดูแลทางคลินิกติดตาม
+                    </h2>
+                </div>
+                <div class="flex items-center gap-1 mt-0.5 sm:mt-0">
+                    <span class="text-white/60 text-[10px]">คลิกเพื่อย่อ/ขยาย</span>
+                    <svg id="overviewCollapseIcon"
+                         class="w-3.5 h-3.5 text-white/80"
+                         style="transform: rotate(180deg);"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Overview body -->
+            <div id="overviewDashboardContent" class="p-2 hidden">
+
+                <!-- Period controls -->
+                <div class="flex flex-wrap gap-2 mb-2 p-1.5 rounded-lg border border-indigo-100 no-print items-center text-xs"
+                     style="background: linear-gradient(135deg, #f0f4ff 0%, #eef2ff 100%);">
+                    <div class="flex items-center gap-1.5">
+                        <label class="font-bold text-slate-600">ปีงบประมาณ:</label>
+                        <input type="number" id="inputFiscalYear" value="2569" min="2560" max="2600"
+                               oninput="updateFiscalYear(this.value)"
+                               class="w-16 font-bold text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 outline-none text-center bg-white">
+                    </div>
+                    <div class="w-px h-3 bg-slate-300 hidden sm:block"></div>
+                    <div class="flex items-center gap-1.5">
+                        <label class="font-bold text-slate-600">ข้อมูลล่าสุด ณ เดือน:</label>
+                        <select id="inputLatestMonth" onchange="updateLatestMonth(this.value)"
+                                class="font-bold text-indigo-700 border border-indigo-200 rounded px-1.5 py-0.5 outline-none bg-white">
+                            <option value="1">ตุลาคม</option>
+                            <option value="2">พฤศจิกายน</option>
+                            <option value="3">ธันวาคม</option>
+                            <option value="4">มกราคม</option>
+                            <option value="5">กุมภาพันธ์</option>
+                            <option value="6">มีนาคม</option>
+                            <option value="7">เมษายน</option>
+                            <option value="8">พฤษภาคม</option>
+                            <option value="9">มิถุนายน</option>
+                            <option value="10">กรกฎาคม</option>
+                            <option value="11">สิงหาคม</option>
+                            <option value="12">กันยายน</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 text-right hidden sm:block">
+                        <span id="displayPeriodLabel" class="text-slate-400 italic">
+                            แสดงข้อมูลสะสม ปีงบประมาณ 2569 (ต.ค. – ตุลาคม)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Summary stats row: Donut + 3 stat cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center mb-2">
+
+                    <!-- Donut chart -->
+                    <div class="flex flex-col items-center justify-center rounded-xl p-2 min-h-[115px]"
+                         style="background: linear-gradient(145deg, #06070f 0%, #0f172a 30%, #1e3a8a 70%, #3730a3 100%);
+                                border: 1px solid rgba(99,102,241,0.3);">
+                        <div class="relative" style="width:105px; height:105px;">
+                            <canvas id="overviewDonutChart"
+                                    style="position:absolute; top:0; left:0; width:105px!important; height:105px!important;"></canvas>
+                            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                                        text-align:center; pointer-events:none; width:100%;">
+                                <div class="text-xs font-bold text-slate-300">
+                                    ผ่าน: <span id="donutCenterPass" class="text-base font-black text-emerald-400">0</span>
+                                </div>
+                                <div class="w-8 h-px bg-slate-600/50 mx-auto my-0.5"></div>
+                                <div class="text-xs font-bold text-slate-300">
+                                    ไม่ผ่าน: <span id="donutCenterFail" class="text-base font-black text-rose-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3 stat cards -->
+                    <div class="sm:col-span-3 grid grid-cols-3 gap-2 h-full">
+                        <div class="stat-card p-2 rounded-lg text-center flex flex-col justify-center shadow-sm"
+                             style="background: linear-gradient(145deg, #1d4ed8, #2563eb, #3b82f6);
+                                    border: 1px solid rgba(255,255,255,0.1);">
+                            <div id="ovTotal" class="text-2xl font-black text-white drop-shadow">0</div>
+                            <div class="text-[10px] font-bold text-blue-200 uppercase tracking-wider">ตัวชี้วัดทั้งหมด</div>
+                        </div>
+                        <div class="stat-card p-2 rounded-lg text-center flex flex-col justify-center shadow-sm"
+                             style="background: linear-gradient(145deg, #059669, #10b981, #34d399);
+                                    border: 1px solid rgba(255,255,255,0.1);">
+                            <div id="ovPass" class="text-2xl font-black text-white drop-shadow">0</div>
+                            <div class="text-[10px] font-bold text-emerald-100 uppercase tracking-wider">ผ่านเกณฑ์</div>
+                        </div>
+                        <div class="stat-card p-2 rounded-lg text-center flex flex-col justify-center shadow-sm"
+                             style="background: linear-gradient(145deg, #be123c, #e11d48, #fb7185);
+                                    border: 1px solid rgba(255,255,255,0.1);">
+                            <div id="ovFail" class="text-2xl font-black text-white drop-shadow">0</div>
+                            <div class="text-[10px] font-bold text-rose-100 uppercase tracking-wider">ไม่ผ่านเกณฑ์</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fail table -->
+                <div class="rounded-lg border border-rose-200 overflow-hidden shadow-sm">
+                    <div class="section-header-rose px-2.5 py-1 flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-rose-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            <h3 class="font-bold text-white text-xs">ตัวชี้วัดที่ยังไม่ผ่านเกณฑ์</h3>
+                        </div>
+                        <span id="failCountBadge"
+                              class="bg-white/20 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border border-white/30">
+                            0 ตัว
+                        </span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left kpi-summary-table" id="kpiFailTable">
+                            <thead>
+                                <tr>
+                                    <th class="px-2 py-1.5 font-semibold w-8 text-center">#</th>
+                                    <th class="px-2 py-1.5 font-semibold min-w-[110px]">กลุ่มงาน / PCT</th>
+                                    <th class="px-2 py-1.5 font-semibold min-w-[310px]">ชื่อตัวชี้วัด</th>
+                                    <th class="px-2 py-1.5 font-semibold text-center w-20">เป้าหมาย</th>
+                                    <th class="px-2 py-1.5 font-semibold text-center w-20">ผลลัพธ์</th>
+                                    <th class="px-2 py-1.5 font-semibold text-center w-20">สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kpiFailBody" class="divide-y divide-rose-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div><!-- /overviewDashboardContent -->
+        </section>
+
+        <!-- ── Detailed KPI section ── -->
+        <div id="detailedDashboardSection" class="space-y-1 full-bleed-section">
+
+            <!-- KPI selector bar -->
+            <section class="bg-white rounded-lg shadow border border-indigo-100 px-2 py-1.5 no-print"
+                     style="background: linear-gradient(135deg, #fff 0%, #eef2ff 100%);">
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div style="min-width:160px; flex:1;">
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase tracking-wider">
+                            กลุ่มงาน / PCT
+                        </label>
+                        <select id="categoryFilter" onchange="handleCategoryChange()"
+                                class="w-full rounded border-slate-300 border px-2 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-xs">
+                        </select>
+                    </div>
+                    <div style="min-width:260px; flex:3;">
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase tracking-wider">
+                            เลือกตัวชี้วัด (KPI)
+                        </label>
+                        <select id="kpiSelector" onchange="handleKpiChange()"
+                                class="w-full rounded border-slate-300 border px-2 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-blue-900 font-medium text-xs">
+                        </select>
+                    </div>
+                    <span id="lblHDC" class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"></span>
+                </div>
+            </section>
+
+            <!-- Main 2-column layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-1.5 items-stretch">
+
+                <!-- ── LEFT COLUMN: KPI card + data table ── -->
+                <div class="flex flex-col gap-1.5">
+
+                    <!-- KPI Summary Card -->
+                    <div class="rounded-xl shadow overflow-hidden flex-1 flex flex-col"
+                         style="border: 2px solid rgba(0,0,0,0.08);">
+
+                        <!-- Card header -->
+                        <div class="section-header-blue px-3 py-1.5 flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-white/15 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="font-semibold text-white text-xs">สรุปผลตัวชี้วัดที่เลือก</h3>
+                        </div>
+
+                        <!-- Card body: YTD badge + detail rows + PCT donut -->
+                        <div class="w-full px-4 py-3 flex flex-col flex-1 items-center text-center gap-2"
+                             style="background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);">
+
+                            <h2 id="scKpiName"
+                                class="text-base font-extrabold leading-snug w-full"
+                                style="color:#1e1b4b; word-break:break-word; text-align:center;"></h2>
+
+                            <div class="flex items-center justify-center gap-1.5">
+                                <span class="text-sm font-bold" style="color:#3730a3;">เกณฑ์:</span>
+                                <span id="scTarget"
+                                      class="px-3 py-0.5 rounded text-sm font-extrabold"
+                                      style="background:rgba(255,255,255,0.7); color:#1e40af; border:1px solid #c7d2fe;"></span>
+                            </div>
+
+                            <div class="flex flex-row items-center gap-3 w-full flex-wrap justify-center flex-1">
+
+                                <!-- YTD badge -->
+                                <div id="ytdAchievementCard"
+                                     class="ytd-achievement-card flex flex-col items-center justify-center px-6 py-3 gap-0.5 rounded-xl flex-shrink-0"
+                                     style="background: linear-gradient(145deg, #312e81 0%, #4338ca 48%, #6d28d9 100%); min-width:155px;">
+                                    <div style="font-size:11px; font-weight:800; color:#ddd6fe; text-transform:uppercase;
+                                                letter-spacing:0.08em; white-space:nowrap;">ผลสัมฤทธิ์ YTD</div>
+                                    <div id="scRate"
+                                         style="font-size:2.6rem; font-weight:900; line-height:1.1;
+                                                color:#ffffff; letter-spacing:-0.02em; text-shadow:0 4px 14px rgba(15,23,42,0.25);">-</div>
+                                    <div id="scUnit" style="font-size:13px; color:#e9d5ff; font-weight:700;"></div>
+                                    <div id="scStatusBadge"
+                                         class="ytd-badge-status px-2.5 py-0.5 rounded-lg font-bold"
+                                         style="margin-top:4px; font-size:12px;"></div>
+                                </div>
+
+                                <!-- Detail rows: denominator / numerator -->
+                                <div class="flex flex-col gap-2 flex-1 text-left" style="min-width:120px;">
+                                    <div class="flex flex-col gap-0.5">
+                                        <span class="text-xs font-semibold" style="color:#6d28d9;" id="scTargetName"></span>
+                                        <span class="text-base font-extrabold px-2 py-0.5 rounded self-start"
+                                              style="background:rgba(255,255,255,0.85); color:#1e1b4b; border:1px solid #c7d2fe;"
+                                              id="scTargetVal">-</span>
+                                    </div>
+                                    <div class="w-full h-px" style="background:rgba(99,102,241,0.2);"></div>
+                                    <div class="flex flex-col gap-0.5">
+                                        <span class="text-xs font-semibold" style="color:#6d28d9;" id="scActualName"></span>
+                                        <span class="text-base font-extrabold px-2 py-0.5 rounded self-start"
+                                              style="background:rgba(255,255,255,0.85); color:#1e1b4b; border:1px solid #c7d2fe;"
+                                              id="scActualVal">-</span>
+                                    </div>
+                                </div>
+
+                                <!-- PCT Donut mini chart -->
+                                <div id="pctSummaryCard"
+                                     class="pct-summary-card flex flex-col flex-shrink-0 rounded-xl px-3.5 py-3 gap-2"
+                                     style="background:linear-gradient(145deg,#0b1120 0%,#172554 55%,#312e81 100%); border:1.5px solid rgba(99,102,241,0.30);
+                                            min-width:255px; transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;">
+                                    <div class="w-full text-left relative z-10">
+                                        <div style="font-size:11px; font-weight:900; color:#ffffff; letter-spacing:0.04em; white-space:nowrap;" id="pctDonutLabel">PCT -</div>
+                                        <div style="font-size:10px; font-weight:600; color:rgba(226,232,240,0.82);">ผลประเมินล่าสุดของกลุ่มตัวชี้วัด</div>
+                                    </div>
+                                    <div class="flex items-center gap-3 w-full relative z-10">
+                                        <div style="position:relative; width:92px; height:92px; flex-shrink:0;">
+                                            <canvas id="pctDonutChart"
+                                                    style="position:absolute; top:0; left:0; width:100%!important; height:100%!important;"></canvas>
+                                            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                                                        text-align:center; pointer-events:none; line-height:1.15; width:100%;">
+                                                <div style="font-size:12px; font-weight:800; color:#34d399;" id="pctDonutCenterPass">0</div>
+                                                <div style="font-size:9px; font-weight:700; color:#94a3b8; letter-spacing:0.08em; text-transform:uppercase;">Pass</div>
+                                                <div style="width:22px; height:1px; background:rgba(148,163,184,0.45); margin:4px auto;"></div>
+                                                <div style="font-size:12px; font-weight:800; color:#fb7185;" id="pctDonutCenterFail">0</div>
+                                                <div style="font-size:9px; font-weight:700; color:#94a3b8; letter-spacing:0.08em; text-transform:uppercase;">Fail</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1 space-y-1.5 text-[11px] relative z-10">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span style="color:#cbd5e1; font-weight:700;">ตัวชี้วัด</span>
+                                                <span id="pctTotalLabel" style="color:#ffffff; font-weight:900;">0 ตัว</span>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span style="color:#86efac; font-weight:700;">ผ่าน</span>
+                                                <span id="pctPassCount" style="color:#34d399; font-weight:900;">0 ตัว</span>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span style="color:#fda4af; font-weight:700;">ไม่ผ่าน</span>
+                                                <span id="pctFailCount" style="color:#fb7185; font-weight:900;">0 ตัว</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div><!-- /KPI Summary Card -->
+
+                    <!-- Monthly data entry table -->
+                    <section class="bg-white rounded-lg shadow border border-blue-200 overflow-hidden flex-shrink-0">
+                        <div class="px-2 py-1 section-header-blue">
+                            <h3 class="font-semibold text-white text-xs flex items-center gap-1.5">
+                                <svg class="w-3 h-3 text-blue-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 6h4M10 18h4"/>
+                                </svg>
+                                ตารางบันทึกข้อมูลรายเดือน
+                            </h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                                        <th class="px-2 py-0.5 font-bold min-w-[130px]">ข้อมูลรายเดือน</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ต.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">พ.ย.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ธ.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ม.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ก.พ.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">มี.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">เม.ย.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">พ.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">มิ.ย.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ก.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ส.ค.</th>
+                                        <th class="px-0.5 py-0.5 text-center font-bold w-10">ก.ย.</th>
+                                        <th class="px-1.5 py-0.5 text-center font-bold w-14 border-l border-slate-200 bg-slate-100">สะสม</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                </div><!-- /LEFT COLUMN -->
+
+                <!-- ── RIGHT COLUMN: Charts + Quarterly summary ── -->
+                <div class="flex flex-col gap-1.5">
+
+                    <!-- Line + Bar charts -->
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <div class="bg-white rounded-lg shadow border border-purple-200 p-1.5"
+                             style="background: linear-gradient(135deg,#fff 0%,#faf5ff 100%);">
+                            <h3 class="text-[10px] font-bold text-purple-700 mb-0.5 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span>
+                                ผลลัพธ์รายเดือน
+                            </h3>
+                            <div class="relative w-full" style="height:130px;">
+                                <canvas id="lineChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow border border-teal-200 p-1.5"
+                             style="background: linear-gradient(135deg,#fff 0%,#f0fdfa 100%);">
+                            <h3 class="text-[10px] font-bold text-teal-700 mb-0.5 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-teal-500 inline-block"></span>
+                                ปริมาณงาน (Volume)
+                            </h3>
+                            <div class="relative w-full" style="height:130px;">
+                                <canvas id="barChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quarterly summary + analysis -->
+                    <section class="bg-white rounded-lg shadow border border-emerald-200 overflow-hidden flex-1">
+                        <div class="px-2 py-1 flex justify-between items-center"
+                             style="background: linear-gradient(135deg, #064e3b 0%, #059669 100%);">
+                            <h3 class="font-semibold text-white text-xs">สรุปผลประจำไตรมาส + วิเคราะห์ปัญหา</h3>
+                            <span class="text-[9px] text-emerald-200 font-medium">4 ไตรมาส</span>
+                        </div>
+                        <div id="quarterlySummaryContainer" class="grid grid-cols-2 gap-1 p-1 bg-slate-50/50"></div>
+                    </section>
+
+                    <!-- Save button -->
+                    <div class="flex justify-end no-print">
+                        <button id="btnSave" onclick="handleManualSave()"
+                                class="text-white font-semibold py-1 px-4 rounded-lg shadow transition-all flex items-center gap-1 text-xs"
+                                style="background: linear-gradient(135deg, #1d4ed8, #4f46e5, #7c3aed);
+                                       border: 1px solid rgba(139,92,246,0.3);">
+                            <svg id="saveIcon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                            </svg>
+                            <span id="saveText">บันทึก & ส่งข้อมูลเข้า Sheet</span>
+                        </button>
+                    </div>
+
+                </div><!-- /RIGHT COLUMN -->
+            </div><!-- /main grid -->
+
+        </div><!-- /detailedDashboardSection -->
+
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!--  JavaScript                                                    -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <script>
+    // ─────────────────────────────────────────────────────────────────
+    // 1. CONSTANTS & CONFIGURATION
+    // ─────────────────────────────────────────────────────────────────
+    Chart.register(ChartDataLabels);
+
+    const MONTH_NAMES     = ['ต.ค.','พ.ย.','ธ.ค.','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.'];
+    const MONTH_FULL      = ['ตุลาคม','พฤศจิกายน','ธันวาคม','มกราคม','กุมภาพันธ์','มีนาคม',
+                             'เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน'];
+    const LOCAL_STORAGE_KEY = 'cgDashboardData_v9';
+    const GOOGLE_SHEET_API_URL =
+        'https://script.google.com/macros/s/AKfycbyPbfhNotpM1Jz8FHfxL7fcmz36wwRO3pTeuhZ2ArT8Y4XWqXK17CF6y5FKXydi259l/exec';
+
+    /** สร้าง monthlyData เปล่า 12 เดือน */
+    const emptyMonthly = () => Array.from({ length: 12 }, () => ({ target: null, actual: null }));
+
+    // ─────────────────────────────────────────────────────────────────
+    // 2. DEFAULT KPI DATA
+    // ─────────────────────────────────────────────────────────────────
+    /**
+     * สร้าง KPI definition object
+     * @param {number} id
+     * @param {string} category
+     * @param {string} name
+     * @param {string} targetText
+     * @param {string} operator   <, <=, >, >=, =
+     * @param {number} targetValue
+     * @param {string} unit        % หรือ /1,000
+     * @param {boolean} isHDC
+     * @param {string} denominatorLabel
+     * @param {string} numeratorLabel
+     */
+    function makeKpi(id, category, name, targetText, operator, targetValue, unit, isHDC, denominatorLabel, numeratorLabel) {
+        return { id, category, name, targetText, operator, targetValue, unit, isHDC,
+                 denominatorLabel, numeratorLabel,
+                 monthlyData: emptyMonthly(),
+                 analysis: ['', '', '', ''] };
+    }
+
+    const DEFAULT_KPI_DATA = [
+        // PCT สูติ-นารีเวช
+        makeKpi(1,  'PCT สูติ-นารีเวช', 'อัตราการเกิดทารกน้ำหนักน้อย < 2,500 กรัม',                                '< 10%',                  '<',  10,  '%',     false, 'จำนวนทารกเกิดมีชีพทั้งหมด',                                           'จำนวนทารกแรกเกิดน้ำหนักน้อยกว่า 2,500 กรัม'),
+        makeKpi(2,  'PCT สูติ-นารีเวช', 'อัตราหญิงตั้งครรภ์ มีภาวะซีดขณะใกล้คลอด (Lab 3)',                       '< 12%',                  '<',  12,  '%',     false, 'จำนวนหญิงตั้งครรภ์ที่ได้รับการตรวจ Lab ครั้งที่ 3',                    'จำนวนหญิงตั้งครรภ์มีภาวะซีดขณะใกล้คลอด'),
+        makeKpi(3,  'PCT สูติ-นารีเวช', 'อัตราการตายปริกำเนิด',                                                    '< 9 : 1,000 ทารกเกิดมีชีพ', '<',  9,  '/1,000',false, 'จำนวนทารกเกิดมีชีพทั้งหมด',                                           'จำนวนทารกตายปริกำเนิด (ตายก่อนคลอด + ตายหลังคลอดใน 7 วัน)'),
+        makeKpi(4,  'PCT สูติ-นารีเวช', 'อัตราการคลอดก่อนกำหนด 28 - 34 สัปดาห์',                                 '< 8%',                   '<',  8,   '%',     false, 'จำนวนทารกคลอดทั้งหมด',                                                'จำนวนทารกคลอดก่อนกำหนด GA 28-34 สัปดาห์'),
+
+        // PCT กุมารเวชกรรม
+        makeKpi(5,  'PCT กุมารเวชกรรม', 'อัตราตายทารกแรกเกิด 0 - 28 วัน',                                         '≤ 4 : 1,000 ทารกเกิดมีชีพ', '<=', 4,  '/1,000',false, 'จำนวนทารกเกิดมีชีพทั้งหมด',                                           'จำนวนทารกเสียชีวิตอายุ 0-28 วัน'),
+        makeKpi(6,  'PCT กุมารเวชกรรม', 'อัตราตายจากการติดเชื้อในกระแสเลือด ในทารกแรกเกิด อายุ 0-28 วัน',         '< 5%',                   '<',  5,   '%',     false, 'จำนวนทารกแรกเกิดที่วินิจฉัยการติดเชื้อในกระแสเลือดทั้งหมด',           'จำนวนทารกแรกเกิดอายุ 0-28 วัน ที่ติดเชื้อและเสียชีวิต'),
+        makeKpi(7,  'PCT กุมารเวชกรรม', 'อัตราตายจากการติดเชื้อในกระแสเลือด ในทารกแรกเกิด อายุ 29 วัน-14 ปี',    '< 10%',                  '<',  10,  '%',     false, 'จำนวนผู้ป่วยเด็กติดเชื้อในกระแสเลือดทั้งหมด',                        'จำนวนผู้ป่วยเด็ก (29 วัน-14 ปี) ที่ติดเชื้อและเสียชีวิต'),
+
+        // PCT อายุรกรรม
+        makeKpi(8,  'PCT อายุรกรรม',    'อัตราตายจากการติดเชื้อในกระแสเลือด (Sepsis) ผู้ใหญ่',                    '≤ 12%',                  '<=', 12,  '%',     false, 'จำนวนผู้ป่วย Sepsis ผู้ใหญ่ทั้งหมด',                                  'จำนวนผู้ป่วย Sepsis ผู้ใหญ่ที่เสียชีวิต'),
+        makeKpi(9,  'PCT อายุรกรรม',    'อัตราตายผู้ป่วย Stroke (I60 - I69)',                                     '< 7%',                   '<',  7,   '%',     false, 'จำนวนผู้ป่วย Stroke ทั้งหมดที่รับไว้รักษา',                           'จำนวนผู้ป่วย Stroke ที่เสียชีวิต'),
+        makeKpi(10, 'PCT อายุรกรรม',    'อัตราตายผู้ป่วย STEMI',                                                  '< 9%',                   '<',  9,   '%',     false, 'จำนวนผู้ป่วย STEMI ทั้งหมด',                                           'จำนวนผู้ป่วย STEMI ที่เสียชีวิต'),
+        makeKpi(11, 'PCT อายุรกรรม',    'อัตราผู้ป่วยความดันโลหิตสูงควบคุมโรคได้ตามเกณฑ์ (<140/90 mmHg) (HDC)',   '> 60%',                  '>',  60,  '%',     true,  'จำนวนผู้ป่วยโรคความดันโลหิตสูงขึ้นทะเบียนทั้งหมด',                   'จำนวนผู้ป่วยความดันที่ควบคุมได้ (BP < 140/90 mmHg)'),
+        makeKpi(12, 'PCT อายุรกรรม',    'อัตราผู้ป่วยเบาหวานควบคุมโรคได้ตามเกณฑ์ (HbA1C < 7) (HDC)',              '> 40%',                  '>',  40,  '%',     true,  'จำนวนผู้ป่วยเบาหวานที่ได้รับการตรวจ HbA1c',                          'จำนวนผู้ป่วยเบาหวานที่ระดับ HbA1c < 7%'),
+        makeKpi(13, 'PCT อายุรกรรม',    'อัตราการเกิดภาวะแทรกซ้อนทางตาผู้ป่วยเบาหวาน (HDC)',                      '< 10%',                  '<',  10,  '%',     true,  'จำนวนผู้ป่วยเบาหวานที่ได้รับการตรวจคัดกรองจอประสาทตา',               'จำนวนผู้ป่วยเบาหวานที่มีภาวะแทรกซ้อนทางตา'),
+        makeKpi(14, 'PCT อายุรกรรม',    'อัตราการเกิดภาวะแทรกซ้อนทางไตระยะ 5 ผู้ป่วยเบาหวาน (HDC)',               '< 10%',                  '<',  10,  '%',     true,  'จำนวนผู้ป่วยเบาหวานทั้งหมด',                                          'จำนวนผู้ป่วยเบาหวานที่มีภาวะแทรกซ้อนทางไตระยะ 5'),
+        makeKpi(15, 'PCT อายุรกรรม',    'อัตราการเกิดภาวะแทรกซ้อนทางเท้า(ถูกตัดเท้า) ผู้ป่วยเบาหวาน (HDC)',      '= 0',                    '=',  0,   '%',     true,  'จำนวนผู้ป่วยเบาหวานที่ขึ้นทะเบียนทั้งหมด',                           'จำนวนผู้ป่วยเบาหวานที่ถูกตัดเท้า/ขา'),
+        makeKpi(16, 'PCT อายุรกรรม',    'ร้อยละของประชากรอายุ 35 ปี ขึ้นไป ได้รับการคัดกรอง เบาหวาน (HDC)',        '> 90%',                  '>',  90,  '%',     true,  'จำนวนประชากรอายุ 35 ปีขึ้นไปในพื้นที่',                               'จำนวนประชากรที่ได้รับการคัดกรองเบาหวาน'),
+        makeKpi(17, 'PCT อายุรกรรม',    'ร้อยละของประชากรอายุ 35 ปี ขึ้นไป ได้รับการคัดกรองความดัน (HDC)',          '> 90%',                  '>',  90,  '%',     true,  'จำนวนประชากรอายุ 35 ปีขึ้นไปในพื้นที่',                               'จำนวนประชากรที่ได้รับการคัดกรองความดันโลหิต'),
+        makeKpi(18, 'PCT อายุรกรรม',    'ร้อยละของผู้ป่วยชะลอไตเสื่อมได้ดี (eGFR ลดลงไม่เกิน 5 มล./นาที ต่อปี) (HDC)', '≥ 66%',           '>=', 66,  '%',     true,  'จำนวนผู้ป่วย CKD ที่ติดตามครบตามเกณฑ์',                               'จำนวนผู้ป่วยชะลอไตเสื่อมได้ดี (eGFR ลดลง ≤ 5 มล./นาที/ปี)'),
+
+        // PCT ศัลยกรรม
+        makeKpi(19, 'PCT ศัลยกรรม',     'ร้อยละของผู้ป่วย fracture around the hip กระดูกสะโพกหักได้รับการผ่าตัด ภายใน 72 ชั่วโมง', '≥ 70%', '>=', 70,  '%',     false, 'จำนวนผู้ป่วย fracture around the hip ทั้งหมด',                        'จำนวนผู้ป่วย fracture around the hip ที่ได้รับการผ่าตัดภายใน 72 ชั่วโมง'),
+    ];
+
+    // ─────────────────────────────────────────────────────────────────
+    // 3. APP STATE
+    // ─────────────────────────────────────────────────────────────────
+    let appData           = [];
+    let currentKpiIndex   = 0;
+    let saveTimeout       = null;
+
+    // Chart instances — kept to allow destroy before re-render
+    let donutChartInstance    = null;
+    let lineChartInstance     = null;
+    let barChartInstance      = null;
+    let pctDonutChartInstance = null;
+
+    // ─────────────────────────────────────────────────────────────────
+    // 4. INITIALISATION
+    // ─────────────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        // Step 1: load data from localStorage (or defaults)
+        loadInitialData();
+
+        // Step 2: populate filters & selectors
+        initFilters();
+        updateKpiSelector();
+
+        // Step 3: render overview + detail sections
+        calculateOverviewDashboard();
+        handleKpiChange();
+        updatePeriodLabel();
+
+        // Step 4: attempt auto-load from Google Sheet
+        setTimeout(() => loadFromSheet(true), 800);
+    });
+
+    /** โหลดข้อมูลจาก localStorage หรือใช้ค่า default */
+    function loadInitialData() {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)); } catch {}
+
+        // ตรวจสอบว่า cache ตรงกับ default จำนวน KPI
+        if (!Array.isArray(cached) || cached.length !== DEFAULT_KPI_DATA.length) {
+            cached = null;
+        }
+
+        // Merge: ใช้โครงสร้าง default เป็นฐาน แต่เอา monthlyData + analysis จาก cache
+        appData = DEFAULT_KPI_DATA.map((def, idx) => {
+            const saved = cached ? cached[idx] : null;
+            return {
+                ...JSON.parse(JSON.stringify(def)),
+                ...(saved || {}),
+                analysis: Array.isArray(saved?.analysis)
+                    ? [saved.analysis[0] || '', saved.analysis[1] || '',
+                       saved.analysis[2] || '', saved.analysis[3] || '']
+                    : ['', '', '', '']
+            };
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 5. DATA PERSISTENCE (localStorage + auto-save)
+    // ─────────────────────────────────────────────────────────────────
+    function saveData() {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appData));
+        calculateOverviewDashboard();
+    }
+
+    /** debounce บันทึกอัตโนมัติ 500ms หลังแก้ไขข้อมูลตาราง */
+    function debounceSave() {
+        renderQuarterAnalysis(appData[currentKpiIndex]);
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveData, 500);
+    }
+
+    /** debounce บันทึก analysis ของไตรมาส */
+    function debounceSaveAnalysis(qIdx) {
+        const kpi = appData[currentKpiIndex];
+        if (!Array.isArray(kpi.analysis)) kpi.analysis = ['', '', '', ''];
+        const field = document.getElementById(`txtAnalysisQ${qIdx}`);
+        kpi.analysis[qIdx] = field ? field.value : '';
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveData, 500);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 6. CALCULATION HELPERS
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * แปลงค่า actual/target เป็น rate ตามหน่วย
+     * @param {number} num  - numerator (actual)
+     * @param {number} den  - denominator (target)
+     * @param {string} unit
+     */
+    const calcRate = (num, den, unit) =>
+        den > 0 ? (num / den) * (unit === '%' ? 100 : 1000) : 0;
+
+    /** ตรวจว่า value ผ่านเกณฑ์หรือไม่ */
+    function checkPassTarget(value, operator, target) {
+        if (value === null || isNaN(value)) return false;
+        switch (operator) {
+            case '<':  return value <  target;
+            case '<=': return value <= target;
+            case '>':  return value >  target;
+            case '>=': return value >= target;
+            case '=':  return value === target;
+            default:   return false;
+        }
+    }
+
+    /**
+     * หาค่า actual/target เดือนล่าสุดที่มีข้อมูล (สำหรับ HDC)
+     * @param {object} kpi
+     * @param {number} maxIdx  - สแกนถึงเดือนที่ maxIdx (0-based)
+     * @returns {{ latestActual: number|null, latestTarget: number|null }}
+     */
+    function getLatestMonthData(kpi, maxIdx) {
+        let latestActual = null, latestTarget = null;
+        for (let i = maxIdx; i >= 0; i--) {
+            const md = kpi.monthlyData[i];
+            if (latestActual === null && md.actual !== null) latestActual = parseFloat(md.actual);
+            if (latestTarget === null && md.target !== null) latestTarget = parseFloat(md.target);
+            if (latestActual !== null && latestTarget !== null) break;
+        }
+        return { latestActual, latestTarget };
+    }
+
+    /**
+     * คำนวณผลลัพธ์ KPI ณ เดือน latestMonth (สะสมตั้งแต่ต้นปี)
+     * @returns {{ hasData: boolean, rate: number }}
+     */
+    function getKpiLatestResult(kpi) {
+        const maxIdx = parseInt(document.getElementById('inputLatestMonth').value) - 1;
+        return _computeKpiResult(kpi, maxIdx);
+    }
+
+    /**
+     * คำนวณผลลัพธ์สะสมทั้งปี (ไม่จำกัด latestMonth — ใช้ทุกเดือนที่มีข้อมูล)
+     * @returns {{ hasData: boolean, rate: number }}
+     */
+    function getKpiFullYtdResult(kpi) {
+        return _computeKpiResult(kpi, 11);
+    }
+
+    /** ใช้ผลตามช่วง latestMonth (สำหรับภาพรวมด้านบน) */
+    function evaluateKpiSummaryStatus(kpi) {
+        const res = getKpiLatestResult(kpi);
+        if (!res.hasData) {
+            return { status: 'noData', hasData: false, isPass: false, rate: res.rate };
+        }
+        const isPass = checkPassTarget(res.rate, kpi.operator, kpi.targetValue);
+        return { status: isPass ? 'pass' : 'fail', hasData: true, isPass, rate: res.rate };
+    }
+
+    /** ใช้ผล YTD เต็มปีแบบเดียวกับการ์ดสรุป KPI ฝั่งซ้าย */
+    function evaluateKpiYtdStatus(kpi) {
+        const res = getKpiFullYtdResult(kpi);
+        if (!res.hasData) {
+            return { status: 'noData', hasData: false, isPass: false, rate: res.rate };
+        }
+        const isPass = checkPassTarget(res.rate, kpi.operator, kpi.targetValue);
+        return { status: isPass ? 'pass' : 'fail', hasData: true, isPass, rate: res.rate };
+    }
+
+    function getCategorySummaryStatus(category) {
+        let pass = 0, fail = 0, noData = 0;
+        appData.forEach(kpi => {
+            if (kpi.category !== category) return;
+            const summary = evaluateKpiSummaryStatus(kpi);
+            if (summary.status === 'pass') pass++;
+            else if (summary.status === 'fail') fail++;
+            else noData++;
+        });
+        return { pass, fail, noData, total: pass + fail + noData };
+    }
+
+    /** สรุป PCT ด้วยผล YTD เต็มปี เพื่อให้ตรงกับการ์ดสรุป KPI ฝั่งซ้าย */
+    function getCategoryYtdSummaryStatus(category) {
+        let pass = 0, fail = 0, noData = 0;
+        appData.forEach(kpi => {
+            if (kpi.category !== category) return;
+            const summary = evaluateKpiYtdStatus(kpi);
+            if (summary.status === 'pass') pass++;
+            else if (summary.status === 'fail') fail++;
+            else noData++;
+        });
+        return { pass, fail, noData, total: pass + fail + noData };
+    }
+
+    /** Internal: logic คำนวณร่วมกันสำหรับ HDC และ non-HDC */
+    function _computeKpiResult(kpi, maxIdx) {
+        if (kpi.isHDC) {
+            const { latestActual, latestTarget } = getLatestMonthData(kpi, maxIdx);
+            const hasData = latestActual !== null;
+            const rate = (latestActual !== null && latestTarget !== null && latestTarget > 0)
+                ? calcRate(latestActual, latestTarget, kpi.unit) : 0;
+            return { hasData, rate };
+        }
+        let sumNum = 0, sumDen = 0, hasData = false;
+        for (let i = 0; i <= maxIdx; i++) {
+            const md = kpi.monthlyData[i];
+            if (md && md.actual !== null) { sumNum += parseFloat(md.actual); hasData = true; }
+            if (md && md.target !== null)   sumDen += parseFloat(md.target);
+        }
+        if (!hasData) return { hasData: false, rate: 0 };
+        return { hasData: true, rate: calcRate(sumNum, sumDen, kpi.unit) };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 7. PERIOD / YEAR CONTROLS
+    // ─────────────────────────────────────────────────────────────────
+    function updateFiscalYear(val) {
+        document.getElementById('headerYear').textContent = parseInt(val) || 2569;
+        updatePeriodLabel();
+        calculateOverviewDashboard();
+    }
+
+    function updateLatestMonth() {
+        updatePeriodLabel();
+        calculateOverviewDashboard();
+        handleKpiChange();
+    }
+
+    function updatePeriodLabel() {
+        const yr   = document.getElementById('inputFiscalYear').value || '2569';
+        const mIdx = parseInt(document.getElementById('inputLatestMonth').value || '1') - 1;
+        document.getElementById('displayPeriodLabel').textContent =
+            `แสดงข้อมูลสะสม ปีงบประมาณ ${yr} (ต.ค. – ${MONTH_FULL[mIdx]})`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 8. SECTION TOGGLE (collapse/expand)
+    // ─────────────────────────────────────────────────────────────────
+    function toggleOverviewSection() {
+        const content = document.getElementById('overviewDashboardContent');
+        const icon    = document.getElementById('overviewCollapseIcon');
+        const isHidden = content.classList.toggle('hidden');
+        icon.style.transform = isHidden ? 'rotate(180deg)' : '';
+    }
+
+    function toggleDetailsSection() {
+        const section       = document.getElementById('detailedDashboardSection');
+        const toggleText    = document.getElementById('toggleText');
+        const toggleIcon    = document.getElementById('toggleIcon');
+        const ovContent     = document.getElementById('overviewDashboardContent');
+        const ovIcon        = document.getElementById('overviewCollapseIcon');
+
+        const willShow = section.classList.toggle('hidden');  // toggle returns true if now hidden
+        if (!willShow) {
+            // Section is now VISIBLE
+            toggleText.textContent = 'ปิดการแสดงรายละเอียดตัวชี้วัด';
+            toggleIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>`;
+            // Collapse overview to save space
+            if (!ovContent.classList.contains('hidden')) {
+                ovContent.classList.add('hidden');
+                ovIcon.style.transform = 'rotate(180deg)';
+            }
+            renderCharts();
+            setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+        } else {
+            // Section is now HIDDEN
+            toggleText.textContent = 'แสดงรายละเอียดตัวชี้วัดทั้งหมด';
+            toggleIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>`;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 9. OVERVIEW DASHBOARD
+    // ─────────────────────────────────────────────────────────────────
+    function calculateOverviewDashboard() {
+        let passCount = 0, failCount = 0, failNum = 0, failRows = '';
+
+        appData.forEach(kpi => {
+            const summary = evaluateKpiSummaryStatus(kpi);
+            if (!summary.hasData) return;
+
+            const rate      = summary.rate;
+            const resultStr = rate.toFixed(2) + kpi.unit;
+
+            if (summary.isPass) {
+                passCount++;
+            } else {
+                failCount++;
+                failNum++;
+                failRows += `
+                <tr class="text-xs">
+                    <td class="px-2 py-1.5 text-center font-bold text-slate-400">${failNum}</td>
+                    <td class="px-2 py-1.5 text-slate-500 font-medium">${kpi.category}</td>
+                    <td class="px-2 py-1.5 font-medium text-slate-700 whitespace-normal leading-tight">${kpi.name}</td>
+                    <td class="px-2 py-1.5 text-center">
+                        <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">${kpi.targetText}</span>
+                    </td>
+                    <td class="px-2 py-1.5 text-center font-bold text-rose-600">${resultStr}</td>
+                    <td class="px-2 py-1.5 text-center"><span class="status-fail">ไม่ผ่านเกณฑ์</span></td>
+                </tr>`;
+            }
+        });
+
+        const totalCount = appData.length;
+        const noDataCount = totalCount - passCount - failCount;
+
+        document.getElementById('ovTotal').textContent    = totalCount;
+        document.getElementById('ovPass').textContent     = passCount;
+        document.getElementById('ovFail').textContent     = failCount;
+        document.getElementById('failCountBadge').textContent = `${failCount} ตัว`;
+        document.getElementById('donutCenterPass').textContent = passCount;
+        document.getElementById('donutCenterFail').textContent = failCount;
+        document.getElementById('kpiFailBody').innerHTML  =
+            failRows || `<tr><td colspan="6" class="p-2 text-center text-slate-400 font-medium text-xs">
+                            ไม่มีตัวชี้วัดที่ไม่ผ่านเกณฑ์ในเดือนนี้</td></tr>`;
+
+        renderOverviewDonut(passCount, failCount, noDataCount);
+    }
+
+    function renderOverviewDonut(pass, fail, noData) {
+        const ctx = document.getElementById('overviewDonutChart').getContext('2d');
+        if (donutChartInstance) donutChartInstance.destroy();
+        donutChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [pass, fail, noData],
+                    backgroundColor: ['#10b981', '#f43f5e', '#e2e8f0'],
+                    borderWidth: 0,
+                    hoverOffset: 1
+                }]
+            },
+            options: {
+                cutout: '72%',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { tooltip: { enabled: false }, datalabels: { display: false } }
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 10. KPI FILTER & SELECTOR
+    // ─────────────────────────────────────────────────────────────────
+    function initFilters() {
+        const categories = [...new Set(appData.map(k => k.category))];
+        const sel = document.getElementById('categoryFilter');
+        sel.innerHTML = '<option value="ALL">แสดงทุกกลุ่มงาน</option>';
+        categories.forEach(c => { sel.innerHTML += `<option value="${c}">${c}</option>`; });
+    }
+
+    function handleCategoryChange() {
+        updateKpiSelector();
+        handleKpiChange();
+    }
+
+    function updateKpiSelector() {
+        const cat = document.getElementById('categoryFilter').value;
+        const sel = document.getElementById('kpiSelector');
+        sel.innerHTML = '';
+        appData.forEach((k, idx) => {
+            if (cat === 'ALL' || k.category === cat) {
+                sel.innerHTML += `<option value="${idx}">[${k.category}] ${k.name}</option>`;
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 11. DETAIL VIEW — on KPI select
+    // ─────────────────────────────────────────────────────────────────
+    function handleKpiChange() {
+        const sel = document.getElementById('kpiSelector');
+        if (!sel.value) return;
+        currentKpiIndex = parseInt(sel.value);
+        const kpi = appData[currentKpiIndex];
+
+        // ── Update KPI header info ──────────────────────────────────
+        document.getElementById('scKpiName').textContent    = kpi.name;
+        document.getElementById('scTarget').textContent     = kpi.targetText;
+        document.getElementById('scUnit').textContent       = `หน่วยดัชนี: ${kpi.unit}`;
+        document.getElementById('scActualName').textContent = kpi.numeratorLabel;
+        document.getElementById('scTargetName').textContent = kpi.denominatorLabel;
+
+        // HDC badge
+        const hdcBadge = document.getElementById('lblHDC');
+        if (kpi.isHDC) {
+            hdcBadge.textContent = 'HDC Data KPI';
+            hdcBadge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+        } else {
+            hdcBadge.textContent = 'Internal KPI';
+            hdcBadge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800';
+        }
+
+        // ── Compute YTD figures ─────────────────────────────────────
+        updateYtdCard(kpi);
+        renderQuarterAnalysis(kpi);
+        buildInputTable(kpi);
+        buildQuarterlySummary(kpi);
+        renderCharts();
+        renderPctDonut();
+    }
+
+    /** อัปเดต YTD badge (rate, numerator, denominator, status) */
+    function updateYtdCard(kpi) {
+        let hasData = false, ytdRate = 0, actualDisplay = '-', targetDisplay = '-';
+
+        if (kpi.isHDC) {
+            const { latestActual, latestTarget } = getLatestMonthData(kpi, 11);
+            hasData        = latestActual !== null;
+            ytdRate        = (hasData && latestTarget > 0) ? calcRate(latestActual, latestTarget, kpi.unit) : 0;
+            actualDisplay  = hasData ? latestActual.toLocaleString() : '-';
+            targetDisplay  = latestTarget !== null ? latestTarget.toLocaleString() : '-';
+        } else {
+            let sumNum = 0, sumDen = 0;
+            kpi.monthlyData.forEach(md => {
+                if (md.actual !== null) { sumNum += parseFloat(md.actual); hasData = true; }
+                if (md.target !== null)   sumDen += parseFloat(md.target);
+            });
+            ytdRate       = sumDen > 0 ? calcRate(sumNum, sumDen, kpi.unit) : 0;
+            actualDisplay = sumNum.toLocaleString();
+            targetDisplay = sumDen.toLocaleString();
+        }
+
+        document.getElementById('scRate').textContent      = hasData ? ytdRate.toFixed(2) : '-';
+        document.getElementById('scActualVal').textContent = hasData ? actualDisplay : '-';
+        document.getElementById('scTargetVal').textContent = hasData ? targetDisplay : '-';
+
+        const badge = document.getElementById('scStatusBadge');
+        const ytdCard = document.getElementById('ytdAchievementCard');
+        if (!hasData) {
+            badge.textContent = 'ไม่มีข้อมูล';
+            badge.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100/90 text-slate-600';
+            if (ytdCard) {
+                ytdCard.style.background = 'linear-gradient(145deg, #334155 0%, #1e293b 55%, #0f172a 100%)';
+                ytdCard.style.boxShadow = '0 16px 34px rgba(15,23,42,0.24), inset 0 1px 0 rgba(255,255,255,0.08)';
+            }
+        } else if (checkPassTarget(ytdRate, kpi.operator, kpi.targetValue)) {
+            badge.textContent = '✓ ผ่านเกณฑ์';
+            badge.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700';
+            if (ytdCard) {
+                ytdCard.style.background = 'linear-gradient(145deg, #064e3b 0%, #059669 52%, #10b981 100%)';
+                ytdCard.style.boxShadow = '0 18px 36px rgba(5,150,105,0.30), inset 0 1px 0 rgba(255,255,255,0.10)';
+            }
+        } else {
+            badge.textContent = '✗ ไม่ผ่านเกณฑ์';
+            badge.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700';
+            if (ytdCard) {
+                ytdCard.style.background = 'linear-gradient(145deg, #7f1d1d 0%, #be123c 52%, #f43f5e 100%)';
+                ytdCard.style.boxShadow = '0 18px 36px rgba(225,29,72,0.30), inset 0 1px 0 rgba(255,255,255,0.10)';
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 12. MONTHLY DATA TABLE
+    // ─────────────────────────────────────────────────────────────────
+    function buildInputTable(kpi) {
+        let r1 = `<tr class="hover:bg-slate-50/80 transition text-xs">
+            <td class="px-2.5 py-1.5 min-w-[210px] whitespace-normal break-words leading-snug" title="${kpi.numeratorLabel}">
+                <span class="inline-block text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1 mr-1 leading-tight align-middle">ผล</span>
+                <span class="font-medium text-slate-700">${kpi.numeratorLabel}</span>
+            </td>`;
+        let r2 = `<tr class="hover:bg-slate-50/80 transition text-xs">
+            <td class="px-2.5 py-1.5 min-w-[210px] whitespace-normal break-words leading-snug" title="${kpi.denominatorLabel}">
+                <span class="inline-block text-[10px] font-extrabold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1 mr-1 leading-tight align-middle">เป้า</span>
+                <span class="font-medium text-slate-700">${kpi.denominatorLabel}</span>
+            </td>`;
+        let r3 = `<tr class="bg-slate-50/40 text-xs"><td class="px-2.5 py-1.5 font-bold text-slate-600">ผลลัพธ์</td>`;
+
+        let sumNum = 0, sumDen = 0, latestActual = null, latestTarget = null;
+
+        for (let i = 0; i < 12; i++) {
+            const md     = kpi.monthlyData[i];
+            const actVal = md.actual !== null ? md.actual : '';
+            const tgtVal = md.target !== null ? md.target : '';
+
+            if (md.actual !== null) { sumNum += parseFloat(md.actual); latestActual = parseFloat(md.actual); }
+            if (md.target !== null) { sumDen += parseFloat(md.target); latestTarget = parseFloat(md.target); }
+
+            r1 += `<td class="px-0.5 py-0.5 text-center">
+                <input type="number" data-month="${i}" data-type="actual" value="${actVal}"
+                       oninput="handleTableInput(this)"
+                       class="w-11 text-center border border-slate-200 rounded p-0.5 text-xs focus:border-blue-500 outline-none">
+            </td>`;
+            r2 += `<td class="px-0.5 py-0.5 text-center">
+                <input type="number" data-month="${i}" data-type="target" value="${tgtVal}"
+                       oninput="handleTableInput(this)"
+                       class="w-11 text-center border border-slate-200 rounded p-0.5 text-xs focus:border-blue-500 outline-none">
+            </td>`;
+
+            // Rate cell
+            let rateStr = '-', passClass = 'text-slate-400';
+            if (md.target > 0 && md.actual !== null) {
+                const rate = calcRate(parseFloat(md.actual), parseFloat(md.target), kpi.unit);
+                rateStr    = rate.toFixed(2);
+                passClass  = checkPassTarget(rate, kpi.operator, kpi.targetValue)
+                    ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold';
+            }
+            r3 += `<td class="px-0.5 py-0.5 text-center ${passClass}">${rateStr}</td>`;
+        }
+
+        // ── Accumulation column (สะสม) ─────────────────────────────
+        if (kpi.isHDC) {
+            // HDC: show latest month value
+            const dispA = latestActual !== null ? latestActual.toLocaleString() : '-';
+            const dispT = latestTarget !== null ? latestTarget.toLocaleString() : '-';
+            r1 += `<td class="px-2 py-1.5 text-center bg-slate-100 font-semibold border-l border-slate-200" id="totalActualSum">${dispA}</td></tr>`;
+            r2 += `<td class="px-2 py-1.5 text-center bg-slate-100 font-semibold border-l border-slate-200" id="totalTargetSum">${dispT}</td></tr>`;
+            r3 += `<td class="px-2 py-1.5 text-center border-l border-slate-200 bg-blue-50 font-bold text-slate-400 italic" id="totalRateCell">N/A</td></tr>`;
+        } else {
+            // non-HDC: combine denominator & numerator in one rowspan cell
+            r1 += `</tr>`;
+            r2 += `<td class="px-2 py-1 text-center bg-slate-100 border-l border-slate-200 leading-tight" rowspan="2">
+                <div class="font-bold text-blue-700 text-sm" id="totalTargetSum">${sumDen.toLocaleString()}</div>
+                <div class="w-8 h-px bg-slate-400 mx-auto my-0.5"></div>
+                <div class="font-bold text-emerald-700 text-sm" id="totalActualSum">${sumNum.toLocaleString()}</div>
+            </td></tr>`;
+            let totalRateStr = '-', totalPassClass = 'text-slate-500';
+            if (sumDen > 0) {
+                const totalRate = calcRate(sumNum, sumDen, kpi.unit);
+                totalRateStr   = totalRate.toFixed(2);
+                totalPassClass = checkPassTarget(totalRate, kpi.operator, kpi.targetValue)
+                    ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold';
+            }
+            r3 += `<td class="px-2 py-1.5 text-center ${totalPassClass} border-l border-slate-200 bg-blue-50 font-bold" id="totalRateCell">${totalRateStr}</td></tr>`;
+        }
+
+        // เรียงลำดับ: เป้า(r2) → ผล(r1) → ผลลัพธ์(r3)
+        document.getElementById('tableBody').innerHTML = r2 + r1 + r3;
+    }
+
+    /** เมื่อผู้ใช้แก้ไขช่องในตาราง */
+    function handleTableInput(input) {
+        const mIdx = parseInt(input.getAttribute('data-month'));
+        const type = input.getAttribute('data-type');
+        const val  = input.value !== '' ? parseFloat(input.value) : null;
+
+        appData[currentKpiIndex].monthlyData[mIdx][type] = val;
+        saveData();
+
+        const kpi = appData[currentKpiIndex];
+        _refreshTableTotals(kpi);
+        _refreshRateCellAtMonth(kpi, mIdx);
+        updateYtdCard(kpi);
+        buildQuarterlySummary(kpi);
+        renderCharts();
+        renderPctDonut();
+    }
+
+    /** อัปเดตช่องสะสม (totalActualSum, totalTargetSum, totalRateCell) หลังกรอก */
+    function _refreshTableTotals(kpi) {
+        let sumNum = 0, sumDen = 0, latestActual = null, latestTarget = null;
+        kpi.monthlyData.forEach(md => {
+            if (md.actual !== null) { sumNum += parseFloat(md.actual); latestActual = parseFloat(md.actual); }
+            if (md.target !== null) { sumDen += parseFloat(md.target); latestTarget = parseFloat(md.target); }
+        });
+
+        const elA = document.getElementById('totalActualSum');
+        const elT = document.getElementById('totalTargetSum');
+        const elR = document.getElementById('totalRateCell');
+
+        if (kpi.isHDC) {
+            if (elA) elA.textContent = latestActual !== null ? latestActual.toLocaleString() : '-';
+            if (elT) elT.textContent = latestTarget !== null ? latestTarget.toLocaleString() : '-';
+            if (elR) { elR.textContent = 'N/A'; elR.className = 'px-2 py-1.5 text-center border-l border-slate-200 bg-blue-50 font-bold text-slate-400 italic'; }
+        } else {
+            if (elA) elA.textContent = sumNum.toLocaleString();
+            if (elT) elT.textContent = sumDen.toLocaleString();
+            if (elR && sumDen > 0) {
+                const r = calcRate(sumNum, sumDen, kpi.unit);
+                elR.textContent = r.toFixed(2);
+                elR.className   = `px-2 py-1.5 text-center border-l border-slate-200 bg-blue-50 font-bold ${
+                    checkPassTarget(r, kpi.operator, kpi.targetValue) ? 'text-emerald-700' : 'text-rose-700'}`;
+            }
+        }
+    }
+
+    /** อัปเดต rate cell ของเดือนที่แก้ไขในแถวผลลัพธ์ */
+    function _refreshRateCellAtMonth(kpi, mIdx) {
+        const rateCell = document.querySelector(`#tableBody tr:nth-child(3) td:nth-child(${mIdx + 2})`);
+        if (!rateCell) return;
+        const md = kpi.monthlyData[mIdx];
+        if (md.target !== null && md.target > 0 && md.actual !== null) {
+            const rate = calcRate(parseFloat(md.actual), parseFloat(md.target), kpi.unit);
+            rateCell.textContent = rate.toFixed(2);
+            rateCell.className   = `px-0.5 py-0.5 text-center ${
+                checkPassTarget(rate, kpi.operator, kpi.targetValue)
+                    ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}`;
+        } else {
+            rateCell.textContent = '-';
+            rateCell.className   = 'px-0.5 py-0.5 text-center text-slate-400';
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 13. QUARTERLY SUMMARY
+    // ─────────────────────────────────────────────────────────────────
+    const QUARTERS = [
+        { name: 'ไตรมาส 1', months: [0, 1, 2] },
+        { name: 'ไตรมาส 2', months: [3, 4, 5] },
+        { name: 'ไตรมาส 3', months: [6, 7, 8] },
+        { name: 'ไตรมาส 4', months: [9, 10, 11] }
+    ];
+
+    function buildQuarterlySummary(kpi) {
+        const container = document.getElementById('quarterlySummaryContainer');
+        container.innerHTML = '';
+
+        QUARTERS.forEach((q, qIdx) => {
+            let qNum = 0, qDen = 0, hasData = false, monthsWithData = 0;
+            let qLatestActual = null, qLatestTarget = null;
+
+            q.months.forEach(mIdx => {
+                const m = kpi.monthlyData[mIdx];
+                if (m.actual !== null) { qNum += parseFloat(m.actual); hasData = true; monthsWithData++; qLatestActual = parseFloat(m.actual); }
+                if (m.target !== null) { qDen += parseFloat(m.target);                                   qLatestTarget = parseFloat(m.target); }
+            });
+
+            const isComplete = monthsWithData >= 3;
+            let rateStr      = '-', statusText = 'ไม่มีข้อมูล';
+            let cardClass    = 'bg-white border-slate-200 text-slate-400';
+            let badgeClass   = 'bg-slate-100 text-slate-600';
+            const dispActual = hasData
+                ? (kpi.isHDC && qLatestActual !== null ? qLatestActual : qNum).toLocaleString()
+                : '-';
+            const dispTarget = kpi.isHDC
+                ? (qLatestTarget !== null ? qLatestTarget.toLocaleString() : 'N/A')
+                : qDen.toLocaleString();
+
+            if (hasData && isComplete) {
+                const rate = kpi.isHDC
+                    ? (qLatestActual !== null && qLatestTarget > 0 ? calcRate(qLatestActual, qLatestTarget, kpi.unit) : 0)
+                    : (qDen > 0 ? calcRate(qNum, qDen, kpi.unit) : 0);
+
+                rateStr = rate.toFixed(2) + (kpi.unit === '%' ? '%' : kpi.unit === '/1,000' ? '/พัน' : '');
+
+                if (checkPassTarget(rate, kpi.operator, kpi.targetValue)) {
+                    statusText = 'ผ่าน';
+                    cardClass  = 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 text-emerald-900';
+                    badgeClass = 'bg-emerald-500 text-white';
+                } else {
+                    statusText = 'ไม่ผ่าน';
+                    cardClass  = 'bg-gradient-to-br from-rose-50 to-orange-50 border-rose-200 text-rose-900';
+                    badgeClass = 'bg-rose-500 text-white';
+                }
+            } else if (hasData && !isComplete) {
+                statusText = 'ข้อมูลไม่ครบ';
+                cardClass  = 'bg-white border-amber-200 text-amber-800';
+                badgeClass = 'bg-amber-100 text-amber-700';
+                rateStr    = `${monthsWithData}/3 เดือน`;
+            }
+
+            const analysisVal = (Array.isArray(kpi.analysis) ? kpi.analysis[qIdx] : '') || '';
+
+            container.innerHTML += `
+            <div class="rounded border ${cardClass} shadow-sm flex flex-col text-xs overflow-hidden">
+                <div class="p-1">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-xs">${q.name}</span>
+                        <span class="text-[9px] px-1 py-0 rounded font-bold ${badgeClass}">${statusText}</span>
+                    </div>
+                    <div class="text-base font-black tracking-tight">${hasData ? rateStr : '-'}</div>
+                    <div class="text-[9px] text-slate-500 border-t border-slate-100 pt-0.5 flex justify-between gap-1">
+                        <span class="truncate">ผล: <span class="font-semibold">${dispActual}</span></span>
+                        <span class="shrink-0">เป้า: <span class="font-semibold">${dispTarget}</span></span>
+                    </div>
+                </div>
+                <div class="border-t border-slate-200 bg-white/60 px-1 py-0.5">
+                    <textarea id="txtAnalysisQ${qIdx}" oninput="handleAnalysisInput(${qIdx})"
+                              class="w-full p-1 border border-slate-200 rounded text-xs resize-none overflow-hidden outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
+                              style="min-height:52px; height:52px;"
+                              placeholder="วิเคราะห์/แนวทางพัฒนา ${q.name}">${analysisVal}</textarea>
+                </div>
+            </div>`;
+        });
+        autoResizeAllQuarterAnalysis();
+    }
+
+    function autoResizeTextarea(field) {
+        if (!field) return;
+        field.style.height = '52px';
+        field.style.height = `${Math.max(field.scrollHeight, 52)}px`;
+    }
+
+    function autoResizeAllQuarterAnalysis() {
+        for (let i = 0; i < 4; i++) {
+            autoResizeTextarea(document.getElementById(`txtAnalysisQ${i}`));
+        }
+    }
+
+    function handleAnalysisInput(qIdx) {
+        autoResizeTextarea(document.getElementById(`txtAnalysisQ${qIdx}`));
+        debounceSaveAnalysis(qIdx);
+    }
+
+    /** ใส่ข้อความวิเคราะห์กลับใน textarea ทั้ง 4 ไตรมาส */
+    function renderQuarterAnalysis(kpi) {
+        if (!kpi) return;
+        if (!Array.isArray(kpi.analysis)) kpi.analysis = ['', '', '', ''];
+        for (let i = 0; i < 4; i++) {
+            const field = document.getElementById(`txtAnalysisQ${i}`);
+            if (field) {
+                field.value = kpi.analysis[i] || '';
+                autoResizeTextarea(field);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 14. PCT DONUT CHART (ผ่าน/ไม่ผ่านของ PCT ที่เลือก)
+    // ─────────────────────────────────────────────────────────────────
+    function renderPctDonut() {
+        const kpi = appData[currentKpiIndex];
+        if (!kpi) return;
+
+        // นับผล KPI ในหมวดเดียวกัน โดยยึดผล YTD เดียวกับช่องสรุปฝั่งซ้าย
+        const pctSummary = getCategoryYtdSummaryStatus(kpi.category);
+        const pctPass = pctSummary.pass;
+        const pctFail = pctSummary.fail;
+        const pctNoData = pctSummary.noData;
+        const pctTotal = pctSummary.total;
+
+        // สีพื้นหลัง card ตามสถานะ KPI ที่เลือก (ใช้ผล YTD เดียวกับช่องสรุป)
+        const curSummary = evaluateKpiYtdStatus(kpi);
+        const pctCard = document.getElementById('pctSummaryCard');
+        if (pctCard) {
+            if (!curSummary.hasData) {
+                pctCard.style.background  = 'linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #334155 100%)';
+                pctCard.style.borderColor = 'rgba(148,163,184,0.28)';
+                pctCard.style.boxShadow   = '0 18px 36px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.06)';
+            } else if (curSummary.isPass) {
+                pctCard.style.background  = 'linear-gradient(145deg, #022c22 0%, #064e3b 50%, #065f46 100%)';
+                pctCard.style.borderColor = 'rgba(52,211,153,0.40)';
+                pctCard.style.boxShadow   = '0 20px 38px rgba(5,150,105,0.28), inset 0 1px 0 rgba(255,255,255,0.08)';
+            } else {
+                pctCard.style.background  = 'linear-gradient(145deg, #4c0519 0%, #7f1d1d 48%, #9f1239 100%)';
+                pctCard.style.borderColor = 'rgba(251,113,133,0.42)';
+                pctCard.style.boxShadow   = '0 20px 38px rgba(225,29,72,0.30), inset 0 1px 0 rgba(255,255,255,0.08)';
+            }
+        }
+
+        // อัปเดตตัวเลข
+        document.getElementById('pctDonutLabel').textContent      = kpi.category;
+        document.getElementById('pctDonutCenterPass').textContent = pctPass;
+        document.getElementById('pctDonutCenterFail').textContent = pctFail;
+        document.getElementById('pctPassCount').textContent       = `${pctPass} ตัว`;
+        document.getElementById('pctFailCount').textContent       = `${pctFail} ตัว`;
+        document.getElementById('pctTotalLabel').textContent      = `${pctTotal} ตัว`;
+
+        // วาดกราฟ
+        const canvas = document.getElementById('pctDonutChart');
+        if (!canvas) return;
+        if (pctDonutChartInstance) pctDonutChartInstance.destroy();
+        canvas.style.filter = 'drop-shadow(0 10px 18px rgba(15,23,42,0.32))';
+
+        const ctx = canvas.getContext('2d');
+        const gradPass = ctx.createLinearGradient(0, 0, 92, 92);
+        gradPass.addColorStop(0, '#6ee7b7');
+        gradPass.addColorStop(1, '#10b981');
+
+        const gradFail = ctx.createLinearGradient(0, 92, 92, 0);
+        gradFail.addColorStop(0, '#fb7185');
+        gradFail.addColorStop(1, '#e11d48');
+
+        const gradNoData = ctx.createLinearGradient(0, 0, 92, 92);
+        gradNoData.addColorStop(0, 'rgba(226,232,240,0.90)');
+        gradNoData.addColorStop(1, 'rgba(148,163,184,0.72)');
+
+        const hasAny = (pctPass + pctFail + pctNoData) > 0;
+        pctDonutChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data:            hasAny ? [pctPass, pctFail, pctNoData] : [1],
+                    backgroundColor: hasAny ? [gradPass, gradFail, gradNoData] : ['rgba(148,163,184,0.45)'],
+                    borderColor:     hasAny ? ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.16)', 'rgba(255,255,255,0.12)'] : ['rgba(255,255,255,0.10)'],
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    spacing: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                cutout: '72%',
+                responsive: true,
+                maintainAspectRatio: true,
+                animation: {
+                    animateRotate: true,
+                    animateScale: true
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: hasAny,
+                        backgroundColor: 'rgba(15,23,42,0.95)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#e2e8f0',
+                        borderColor: 'rgba(255,255,255,0.08)',
+                        borderWidth: 1,
+                        displayColors: true,
+                        padding: 10,
+                        callbacks: {
+                            label: ctx => {
+                                const labels = ['ผ่านเกณฑ์', 'ไม่ผ่านเกณฑ์', 'ไม่มีข้อมูล'];
+                                return ` ${labels[ctx.dataIndex]}: ${ctx.raw} ตัว`;
+                            }
+                        }
+                    },
+                    datalabels: { display: false }
+                }
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 15. LINE & BAR CHARTS
+    // ─────────────────────────────────────────────────────────────────
+
+    /** shared chart options เพื่อไม่ต้องเขียนซ้ำ */
+    const CHART_FONT = { family: 'Prompt' };
+    function chartScaleOpts() {
+        return {
+            y: { beginAtZero: true, ticks: { font: { ...CHART_FONT, size: 8.5 } } },
+            x: { ticks: { font: { ...CHART_FONT, size: 9.5 } } }
+        };
+    }
+    function chartLegendOpts() {
+        return { labels: { boxWidth: 8, font: { ...CHART_FONT, size: 9.5 } } };
+    }
+
+    function renderCharts() {
+        if (document.getElementById('detailedDashboardSection').classList.contains('hidden')) return;
+        const kpi = appData[currentKpiIndex];
+
+        const lineRates = [], targets = [], volumesActual = [], volumesBase = [];
+        kpi.monthlyData.forEach(md => {
+            targets.push(kpi.targetValue);
+            if (md.actual !== null && md.target !== null && md.target > 0) {
+                const rate = parseFloat(calcRate(parseFloat(md.actual), parseFloat(md.target), kpi.unit).toFixed(2));
+                lineRates.push(rate);
+                volumesActual.push(md.actual);
+                volumesBase.push(md.target);
+            } else if (md.actual === 0 && (md.target === null || md.target === 0)) {
+                lineRates.push(0);
+                volumesActual.push(0);
+                volumesBase.push(md.target !== null ? md.target : 0);
+            } else {
+                lineRates.push(null);
+                volumesActual.push(null);
+                volumesBase.push(null);
+            }
+        });
+
+        // ── Line chart ────────────────────────────────────────────
+        const ctxLine = document.getElementById('lineChart').getContext('2d');
+        if (lineChartInstance) lineChartInstance.destroy();
+        lineChartInstance = new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: MONTH_NAMES,
+                datasets: [
+                    {
+                        label: `ผลลัพธ์ (${kpi.unit})`,
+                        data: lineRates,
+                        borderColor: '#4f46e5', backgroundColor: '#4f46e5',
+                        borderWidth: 2, tension: 0.1, spanGaps: true,
+                        datalabels: {
+                            display: true, align: 'top', anchor: 'end',
+                            color: '#1e3a8a', offset: 3,
+                            font: { ...CHART_FONT, size: 10, weight: 'bold' },
+                            formatter: val => val !== null ? val : ''
+                        }
+                    },
+                    {
+                        label: 'เป้าหมาย',
+                        data: targets,
+                        borderColor: '#f43f5e', borderDash: [3, 3],
+                        borderWidth: 1, pointRadius: 0, fill: false,
+                        datalabels: { display: false }
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: chartLegendOpts() },
+                scales: chartScaleOpts()
+            }
+        });
+
+        // ── Bar chart ─────────────────────────────────────────────
+        /** Compact number formatter (e.g. 1500 → "1.5k") */
+        const fmtVol = val => {
+            if (val === null) return '';
+            if (val >= 1000) return (val / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            return val.toLocaleString();
+        };
+
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        if (barChartInstance) barChartInstance.destroy();
+        barChartInstance = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: MONTH_NAMES,
+                datasets: [
+                    {
+                        label: 'เป้าฐาน',
+                        data: volumesBase,
+                        backgroundColor: 'rgba(148,163,184,0.2)', borderColor: '#94a3b8', borderWidth: 1,
+                        datalabels: { display: true, align: 'top', anchor: 'end', color: '#475569',
+                                      font: { ...CHART_FONT, size: 10, weight: 'bold' }, formatter: fmtVol }
+                    },
+                    {
+                        label: 'ผลงาน',
+                        data: volumesActual,
+                        backgroundColor: 'rgba(45,212,191,0.85)', borderColor: '#2dd4bf', borderWidth: 1,
+                        datalabels: { display: true, align: 'top', anchor: 'end', color: '#115e59',
+                                      font: { ...CHART_FONT, size: 10, weight: 'bold' }, formatter: fmtVol }
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: chartLegendOpts() },
+                scales: chartScaleOpts()
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 16. API STATUS BADGE
+    // ─────────────────────────────────────────────────────────────────
+    function setApiStatus(state, text) {
+        const dot  = document.getElementById('apiStatusDot');
+        const span = document.getElementById('apiStatusText');
+        if (!dot || !span) return;
+        span.textContent = text;
+        const colorMap = { success: 'bg-emerald-400', error: 'bg-rose-400', warning: 'bg-amber-400', loading: 'bg-amber-400 animate-pulse' };
+        dot.className = `w-1.5 h-1.5 rounded-full ${colorMap[state] || 'bg-slate-400'} inline-block`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 17. TOAST NOTIFICATIONS
+    // ─────────────────────────────────────────────────────────────────
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast     = document.createElement('div');
+        toast.className = `toast-enter flex items-center gap-2 px-2.5 py-1.5 rounded-lg shadow text-xs font-semibold text-white ${
+            type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'}`;
+        toast.innerHTML = `<span>${type === 'error' ? '✕' : '✓'} ${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.replace('toast-enter', 'toast-exit');
+            setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 300);
+        }, 3000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 18. GOOGLE SHEET — SAVE (doPost)
+    // ─────────────────────────────────────────────────────────────────
+    async function handleManualSave() {
+        const btn      = document.getElementById('btnSave');
+        const saveText = document.getElementById('saveText');
+        btn.disabled   = true;
+        saveText.textContent = 'กำลังส่งข้อมูล...';
+
+        try {
+            const payload = {
+                version:     'v9',
+                timestamp:   new Date().toISOString(),
+                fiscalYear:  document.getElementById('inputFiscalYear').value,
+                latestMonth: document.getElementById('inputLatestMonth').value,
+                data: appData.map(kpi => ({
+                    id:          kpi.id,
+                    category:    kpi.category,
+                    name:        kpi.name,
+                    targetText:  kpi.targetText,
+                    operator:    kpi.operator,
+                    targetValue: kpi.targetValue,
+                    unit:        kpi.unit,
+                    isHDC:       kpi.isHDC,
+                    monthlyData: kpi.monthlyData,
+                    analysis:    kpi.analysis
+                }))
+            };
+
+            const formData = new URLSearchParams();
+            formData.append('payload', JSON.stringify(payload));
+
+            await fetch(GOOGLE_SHEET_API_URL, {
+                method: 'POST',
+                mode:    'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body:    formData.toString()
+            });
+
+            setApiStatus('success', 'บันทึกสำเร็จ');
+            showToast('ส่งข้อมูลเข้า Google Sheet เรียบร้อยแล้ว ✓');
+
+        } catch (error) {
+            setApiStatus('error', 'เชื่อมต่อไม่ได้');
+            showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            saveText.textContent = 'บันทึก & ส่งข้อมูลเข้า Sheet';
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 19. GOOGLE SHEET — LOAD (doGet)
+    // ─────────────────────────────────────────────────────────────────
+    async function loadFromSheet(isAutoLoad = false) {
+        const btn      = document.getElementById('btnLoad');
+        const loadText = document.getElementById('loadText');
+        const loadIcon = document.getElementById('loadIcon');
+
+        btn.disabled         = true;
+        loadText.textContent = 'กำลังโหลด...';
+        loadIcon.innerHTML   = `<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/>
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="40 20"/>`;
+        setApiStatus('loading', 'กำลังเชื่อมต่อ...');
+
+        try {
+            const url  = `${GOOGLE_SHEET_API_URL}?action=load&t=${Date.now()}`;
+            const resp = await fetch(url, { method: 'GET', mode: 'cors' });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const result = await resp.json();
+
+            if (result.status === 'success' && Array.isArray(result.data) && result.data.length > 0) {
+                // Merge sheet data into default structure
+                appData = DEFAULT_KPI_DATA.map(def => {
+                    const fromSheet = result.data.find(d => d.id === def.id);
+                    if (!fromSheet) return def;
+                    return {
+                        ...def,
+                        monthlyData: fromSheet.monthlyData || def.monthlyData,
+                        analysis:    fromSheet.analysis    || def.analysis
+                    };
+                });
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appData));
+
+                if (result.fiscalYear) {
+                    document.getElementById('inputFiscalYear').value     = result.fiscalYear;
+                    document.getElementById('headerYear').textContent    = result.fiscalYear;
+                }
+                if (result.latestMonth) {
+                    document.getElementById('inputLatestMonth').value    = result.latestMonth;
+                }
+
+                initFilters();
+                calculateOverviewDashboard();
+                updateKpiSelector();
+                handleKpiChange();
+                updatePeriodLabel();
+
+                const kpiCount = result.data.length;
+                setApiStatus('success', `โหลดแล้ว ${kpiCount} ตัวชี้วัด`);
+                if (!isAutoLoad) showToast(`โหลดข้อมูลจาก Sheet สำเร็จ ${kpiCount} ตัวชี้วัด ✓`);
+
+            } else if (result.status === 'nodata') {
+                setApiStatus('warning', 'Sheet ว่าง — ใช้ข้อมูลเดิม');
+                if (!isAutoLoad) showToast('Sheet ยังไม่มีข้อมูล กรุณากรอกข้อมูลแล้วบันทึก', 'error');
+
+            } else {
+                throw new Error(result.message || 'Unknown error');
+            }
+
+        } catch (err) {
+            setApiStatus('error', 'ออฟไลน์ / ยังไม่ Deploy');
+            if (!isAutoLoad) showToast('ไม่สามารถโหลดได้: ' + err.message + ' — ตรวจสอบ API URL และ Deploy', 'error');
+
+        } finally {
+            btn.disabled         = false;
+            loadText.textContent = 'โหลดจาก Sheet';
+            loadIcon.innerHTML   = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>`;
+        }
+    }
+    </script>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
